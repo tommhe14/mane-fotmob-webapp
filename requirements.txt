@@ -1,0 +1,6 @@
+pandas
+streamlit
+matplotlib.pyplot
+matplotlib.patches
+aiohttp
+asyncio
