@@ -1,6 +1,5 @@
 import pandas as pd
 import streamlit as st
-from mplsoccer import VerticalPitch
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import aiohttp
