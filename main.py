@@ -5,9 +5,8 @@ import matplotlib.patches as patches
 import aiohttp
 import asyncio
 
-# Streamlit app starts here
-st.title("DisBall Shot Map!")
-st.subheader("Select a match to see the shot map!")
+st.title("DisBall Web-App")
+st.subheader("Select a match below!")
 
 def draw_pitch(ax=None):
     pitch_length = 105
@@ -62,10 +61,9 @@ async def fetch_and_plot_match(match_id):
     home_team_id = data["header"]["teams"][0]["id"]
     away_team_id = data["header"]["teams"][1]["id"]
 
-    score = data["header"]["status"]["scoreStr"]
+    score = data["header"]["status"].get("scoreStr", "Not Started")
     game_status = data["header"]["status"].get("reason", {}).get("long", "N/A")
 
-    # Set fixed colors
     home_team_color = '#FFA500'  # Orange
     away_team_color = '#90EE90'  # Light green
 
@@ -77,7 +75,6 @@ async def fetch_and_plot_match(match_id):
     for shot in shots:
         x, y = scale_coordinates(shot['x'], shot['y'])
     
-        # Determine team color based on team names
         if shot.get('teamId') == home_team_id:
             team_color = home_team_color
         elif shot.get('teamId') == away_team_id:
@@ -85,16 +82,13 @@ async def fetch_and_plot_match(match_id):
         else:
             team_color = '#000000'  
         
-        # Plot goals and non-goals
         if shot['eventType'] in ["Goal", "Own Goal"]:
             ax.scatter(x, y, c=team_color, s=500 * shot.get('expectedGoals', 0.1), marker='o', edgecolors='none')  # Filled circle
         else:
             ax.scatter(x, y, facecolors='none', edgecolors=team_color, s=500 * shot.get('expectedGoals', 0.1), marker='o')  # Hollow circle
 
-    # Add title
     ax.set_title(f"{home_team_name} {score} {away_team_name} - {game_status}")
 
-    # Create legend with home and away team names
     handles = [
         plt.Line2D([0], [0], color=home_team_color, marker='o', linestyle='', markersize=10),
         plt.Line2D([0], [0], color=away_team_color, marker='o', linestyle='', markersize=10)
@@ -121,11 +115,19 @@ async def get_lineup_ratings(match_id):
     away_lineup = away_team.get("starters", [])
 
     def get_fotmob_rating(player_id):
-        player_info = player_stats.get(player_id, {})
+        if player_stats:
+            player_info = player_stats.get(player_id, None)
+        else:
+            return "No Rating"
+        
+        if not player_info:
+            return "No Rating"
+
         for stat_category in player_info.get("stats", []):
-            if "stats" in stat_category and "FotMob rating" in stat_category["stats"]:
+            if "FotMob rating" in stat_category.get("stats", {}):
                 return stat_category["stats"]["FotMob rating"].get("stat", {}).get("value", "No Rating")
-        return "No Rating"
+        
+        return "No Rating" 
 
     for player in home_lineup:
         player_id = str(player.get("id"))
@@ -140,6 +142,7 @@ async def get_lineup_ratings(match_id):
         ratings["away"].append({"name": player_name, "FotMob Rating": fotmob_rating})
 
     return ratings
+
 
 def rating_to_color(rating):
     try:
@@ -161,24 +164,21 @@ async def fetch_fixtures():
         async with session.get(url) as response:
             return await response.json()
 
-# Streamlit interaction
 async def main():
     st.write("Fetching match data...")
 
     fixtures = await fetch_fixtures()
 
-    # Create a select box for all the matches
     matches = {f"{fix['home']['longName']} vs {fix['away']['longName']}": fix['id'] for league in fixtures['leagues'] for fix in league['matches']}
 
     selected_match = st.selectbox("Select a match", list(matches.keys()))
     match_id = matches[selected_match]
 
-    # Fetch and plot the match shot map
     fig, ax, home_team_name, away_team_name = await fetch_and_plot_match(match_id)
     if fig:
         st.pyplot(fig)
 
-        # Fetch player ratings and display
+
         ratings = await get_lineup_ratings(match_id)
 
         st.subheader("Player Ratings")
