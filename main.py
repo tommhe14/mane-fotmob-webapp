@@ -6,7 +6,7 @@ import aiohttp
 import asyncio
 
 st.title("DisBall Web-App")
-st.subheader("Select a match below!")
+st.subheader("Select a match below from today's fixtures to see a shot map and player stats!")
 
 def draw_pitch(ax=None):
     pitch_length = 105
@@ -163,6 +163,68 @@ async def fetch_fixtures():
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
             return await response.json()
+        
+def render_player_stats(player, player_stats):
+    st.write(f"**Stats for {player['name']}**")
+    for stat_section in player_stats.get("stats", []):
+        st.write(f"**{stat_section['title']}**")
+        for stat_name, stat_value in stat_section.get("stats", {}).items():
+            if 'total' in stat_value:
+                st.write(f"{stat_name}: {stat_value['value']} / {stat_value['total']}")
+            else:
+                st.write(f"{stat_name}: {stat_value['value']}")
+
+async def display_player_stats_buttons(match_id, home_team_name, away_team_name):
+    url = f"https://www.fotmob.com/api/matchDetails?matchId={match_id}"
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:  
+                data = await response.json()
+            else:
+                st.error("Failed to fetch match data.")
+                return
+
+    content = data.get("content", {})
+    if not content:
+        st.error("No content found in the response.")
+        return
+
+    player_stats = content.get("playerStats", {})
+    if player_stats is None:
+        st.warning("No player stats available.")
+        player_stats = {}
+
+    home_lineup = content.get("lineup", {}).get("homeTeam", {}).get("starters", [])
+    away_lineup = content.get("lineup", {}).get("awayTeam", {}).get("starters", [])
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader(f"{home_team_name} Lineup")
+        for player in home_lineup:
+            if f"home_{player['id']}_clicked" not in st.session_state:
+                st.session_state[f"home_{player['id']}_clicked"] = False
+
+            if st.button(player["name"], key=f"home_{player['id']}"):
+                st.session_state[f"home_{player['id']}_clicked"] = not st.session_state[f"home_{player['id']}_clicked"]
+
+            if st.session_state[f"home_{player['id']}_clicked"]:
+                render_player_stats(player, player_stats.get(str(player["id"]), {"message": "No stats available"}))
+
+    with col2:
+        st.subheader(f"{away_team_name} Lineup")
+        for player in away_lineup:
+            if f"away_{player['id']}_clicked" not in st.session_state:
+                st.session_state[f"away_{player['id']}_clicked"] = False
+
+            if st.button(player["name"], key=f"away_{player['id']}"):
+                st.session_state[f"away_{player['id']}_clicked"] = not st.session_state[f"away_{player['id']}_clicked"]
+
+            if st.session_state[f"away_{player['id']}_clicked"]:
+                render_player_stats(player, player_stats.get(str(player["id"]), {"message": "No stats available"}))
+
+
 
 async def main():
     st.write("Fetching match data...")
@@ -190,8 +252,11 @@ async def main():
                 player_name = player["name"]
                 player_rating = player["FotMob Rating"]
                 color = rating_to_color(player_rating)
-                col.write(f"{player_name} - {player_rating}")
+                col.write(player_name)
                 col.markdown(f'<div style="background-color:{color}; color: white; padding: 5px; text-align: center;">{player_rating}</div>', unsafe_allow_html=True)
+
+        
+        await display_player_stats_buttons(match_id, home_team_name, away_team_name)
 
 if __name__ == "__main__":
     asyncio.run(main())
