@@ -166,13 +166,23 @@ async def fetch_fixtures():
         
 def render_player_stats(player, player_stats):
     st.write(f"**Stats for {player['name']}**")
+    
     for stat_section in player_stats.get("stats", []):
-        st.write(f"**{stat_section['title']}**")
+        st.write(f"### {stat_section['title']}")  
+        
         for stat_name, stat_value in stat_section.get("stats", {}).items():
-            if 'total' in stat_value:
-                st.write(f"{stat_name}: {stat_value['value']} / {stat_value['total']}")
+            if stat_name == "Shotmap":
+                continue
+
+            value = stat_value.get("stat", {}).get("value", "N/A")
+            
+            total = stat_value.get("stat", {}).get("total", None)
+            
+            if total is not None:
+                st.write(f"{stat_name}: {value} / {total}")
             else:
-                st.write(f"{stat_name}: {stat_value['value']}")
+                st.write(f"{stat_name}: {value}")
+
 
 async def display_player_stats_buttons(match_id, home_team_name, away_team_name):
     url = f"https://www.fotmob.com/api/matchDetails?matchId={match_id}"
