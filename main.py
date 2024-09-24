@@ -80,12 +80,17 @@ async def fetch_and_plot_match(match_id):
         elif shot.get('teamId') == away_team_id:
             team_color = away_team_color
         else:
-            team_color = '#000000'  
+            team_color = '#000000'  # Default color for unknown team
+        
+        # Check for expectedGoals and ensure it's a valid number
+        expected_goals = shot.get('expectedGoals', 0.1)
+        if not isinstance(expected_goals, (int, float)):
+            expected_goals = 0.1  # Fallback value if not valid
         
         if shot['eventType'] in ["Goal", "Own Goal"]:
-            ax.scatter(x, y, c=team_color, s=500 * shot.get('expectedGoals', 0.1), marker='o', edgecolors='none')  # Filled circle
+            ax.scatter(x, y, c=team_color, s=500 * expected_goals, marker='o', edgecolors='none')  # Filled circle
         else:
-            ax.scatter(x, y, facecolors='none', edgecolors=team_color, s=500 * shot.get('expectedGoals', 0.1), marker='o')  # Hollow circle
+            ax.scatter(x, y, facecolors='none', edgecolors=team_color, s=500 * expected_goals, marker='o')  # Hollow circle
 
     ax.set_title(f"{home_team_name} {score} {away_team_name} - {game_status}")
 
@@ -97,6 +102,7 @@ async def fetch_and_plot_match(match_id):
     ax.legend(handles, labels, loc='upper right')
 
     return fig, ax, home_team_name, away_team_name
+
 
 async def get_lineup_ratings(match_id):
     url = f"https://www.fotmob.com/api/matchDetails?matchId={match_id}"
